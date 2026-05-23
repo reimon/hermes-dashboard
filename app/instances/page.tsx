@@ -7,13 +7,13 @@ import {
   Tags, Shield, ZapIcon, Code, Search, Eye, EyeOff,
   Box, ChevronDown, AlertCircle, Play,
 } from "lucide-react";
-import { PROVIDERS, PROVIDER_MODELS } from "@/lib/hermes-write";
+import { PROVIDERS, PROVIDER_MODELS } from "@/lib/hermes-types";
 import {
   ALL_TAGS,
   type InstanceTag,
   type LlmInstance,
   type InstanceRegistry,
-} from "@/lib/instances";
+} from "@/lib/hermes-types";
 
 interface InstancesData {
   instances: (LlmInstance & { apiKeyPreview: string })[];

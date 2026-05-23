@@ -7,54 +7,11 @@
 import { readFileSync, writeFileSync, existsSync } from "fs";
 import { join } from "path";
 import { homedir } from "os";
-import { PROVIDERS, PROVIDER_MODELS } from "./hermes-write";
+import { PROVIDERS, PROVIDER_MODELS } from "./hermes-types";
+import type { InstanceTag, LlmInstance, InstanceRegistry } from "./hermes-types";
 
 const HERMES_HOME = process.env.HERMES_HOME || join(homedir(), ".hermes");
 const INSTANCES_PATH = join(HERMES_HOME, "llm-instances.json");
-
-// ─── Types ───────────────────────────────────────────────────────────────────
-
-export type InstanceTag =
-  | "main"        // agente principal (conversa)
-  | "code"        // melhor em código / debugging
-  | "analysis"    // melhor em análise / reasoning
-  | "fast"        // barato/rápido (compressão, tarefas simples)
-  | "vision"      // melhor com imagens
-  | "delegation"  // subagentes
-  | "backup";     // fallback reserva
-
-export const ALL_TAGS: { value: InstanceTag; label: string; description: string; color: string }[] = [
-  { value: "main",        label: "Main Agent",    description: "Agente principal da conversa",         color: "emerald" },
-  { value: "code",        label: "Code / Debug",  description: "Melhor em código e debugging",         color: "blue" },
-  { value: "analysis",    label: "Analysis",      description: "Melhor em análise e reasoning",        color: "purple" },
-  { value: "fast",        label: "Fast / Cheap",  description: "Barato e rápido (compressão, tools)",  color: "amber" },
-  { value: "vision",      label: "Vision",        description: "Melhor com imagens e OCR",             color: "pink" },
-  { value: "delegation",  label: "Delegation",    description: "Subagentes e tarefas delegadas",       color: "cyan" },
-  { value: "backup",      label: "Backup",        description: "Fallback reserva se outras falharem",  color: "slate" },
-];
-
-export interface LlmInstance {
-  id: string;
-  name: string;
-  provider: string;
-  model: string;
-  apiKey: string;       // masked in API responses
-  baseUrl?: string;
-  tags: InstanceTag[];
-  priority: number;     // lower = higher priority (1, 2, 3...)
-  enabled: boolean;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface InstanceRegistry {
-  version: 1;
-  instances: LlmInstance[];
-  /** Strategy for selecting the next instance */
-  strategy: "priority" | "round-robin" | "random";
-  /** If true, on failure try next instance */
-  fallbackEnabled: boolean;
-}
 
 // ─── Read/write ──────────────────────────────────────────────────────────────
 

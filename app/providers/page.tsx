@@ -7,7 +7,7 @@ import {
   ChevronDown,
 } from "lucide-react";
 import type { ProviderInfo, HermesProviderState } from "@/lib/hermes-write";
-import { PROVIDER_MODELS } from "@/lib/hermes-write";
+import { PROVIDER_MODELS } from "@/lib/hermes-types";
 
 interface ProviderData extends HermesProviderState {
   keyList: { key: string; value: string; masked: string }[];
