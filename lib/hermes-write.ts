@@ -212,3 +212,82 @@ export async function testConnection(
     };
   }
 }
+
+// ─── Fetch provider models (live, like Futuro Decodificado) ──────────────────
+
+export interface ProviderModel {
+  id: string;
+  name: string;
+  description?: string;
+}
+
+/** GET /models endpoint per provider */
+function getModelsUrl(provider: string, baseUrl: string): string {
+  switch (provider) {
+    case "openrouter":
+      return `${baseUrl.replace(/\/+$/, "")}/models?output_modalities=text`;
+    case "openai":
+      return "https://api.openai.com/v1/models";
+    case "groq":
+      return "https://api.groq.com/openai/v1/models";
+    case "google":
+      return "";
+    case "ollama":
+      return `${(baseUrl || "http://localhost:11434").replace(/\/+$/, "")}/api/tags`;
+    default:
+      return `${baseUrl.replace(/\/+$/, "")}/models`;
+  }
+}
+
+export async function fetchProviderModels(
+  provider: string,
+  apiKey: string,
+  baseUrl?: string,
+): Promise<ProviderModel[]> {
+  const info = PROVIDERS.find((p) => p.value === provider);
+  const url = baseUrl || info?.defaultBaseUrl || "";
+
+  if (!url && provider !== "ollama") return [];
+
+  const modelsUrl = getModelsUrl(provider, url);
+  if (!modelsUrl) return [];
+
+  try {
+    const headers: Record<string, string> = {
+      Accept: "application/json",
+    };
+    if (apiKey && provider !== "ollama") {
+      headers["Authorization"] = `Bearer ${apiKey}`;
+      if (provider === "google") {
+        headers["x-goog-api-key"] = apiKey;
+        delete headers["Authorization"];
+      }
+    }
+
+    const res = await fetch(modelsUrl, {
+      headers,
+      signal: AbortSignal.timeout(15000),
+    });
+
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+    const body = await res.json();
+
+    if (provider === "ollama") {
+      const data = body as { models?: Array<{ name: string; model?: string }> };
+      return (data.models ?? [])
+        .map((m) => ({ id: m.model ?? m.name, name: m.name }))
+        .sort((a, b) => a.id.localeCompare(b.id));
+    }
+
+    const data = body as {
+      data?: Array<{ id: string; name?: string; description?: string }>;
+    };
+    return (data.data ?? [])
+      .filter((m) => Boolean(m.id))
+      .map((m) => ({ id: m.id, name: m.name || m.id, description: m.description }))
+      .sort((a, b) => a.id.localeCompare(b.id));
+  } catch {
+    return [];
+  }
+}
