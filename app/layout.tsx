@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import "./globals.css";
-import { BarChart3, Key, MessageSquare, Terminal, Zap } from "lucide-react";
+import { BarChart3, Key, MessageSquare, Terminal, Zap, Box } from "lucide-react";
 
 export const metadata: Metadata = {
   title: "Hermes Dashboard",
@@ -11,6 +11,7 @@ export const metadata: Metadata = {
 const navItems = [
   { href: "/", label: "Dashboard", icon: BarChart3 },
   { href: "/providers", label: "Providers", icon: Zap },
+  { href: "/instances", label: "Instances", icon: Box },
   { href: "/config", label: "API Keys", icon: Key },
   { href: "/sessions", label: "Sessions", icon: MessageSquare },
 ];
