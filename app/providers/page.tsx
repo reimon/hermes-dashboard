@@ -1,15 +1,127 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import {
   Zap, Key, Globe, Cpu, TestTube2, CheckCircle2,
   XCircle, Save, Eye, EyeOff, RefreshCw, AlertCircle,
+  ChevronDown,
 } from "lucide-react";
 import type { ProviderInfo, HermesProviderState } from "@/lib/hermes-write";
+import { PROVIDER_MODELS } from "@/lib/hermes-write";
 
 interface ProviderData extends HermesProviderState {
   keyList: { key: string; value: string; masked: string }[];
   availableProviders: ProviderInfo[];
+}
+
+function ModelCombobox({
+  value,
+  onChange,
+  provider,
+  placeholder = "Select or type a model...",
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  provider: string;
+  placeholder?: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const [highlightIdx, setHighlightIdx] = useState(-1);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const models = PROVIDER_MODELS[provider] || [];
+  const filtered = value
+    ? models.filter((m) => m.toLowerCase().includes(value.toLowerCase()))
+    : models;
+
+  // Close on outside click
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  const selectModel = (model: string) => {
+    onChange(model);
+    setOpen(false);
+    setHighlightIdx(-1);
+    inputRef.current?.focus();
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setOpen(true);
+      setHighlightIdx((prev) => Math.min(prev + 1, filtered.length - 1));
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setHighlightIdx((prev) => Math.max(prev - 1, -1));
+    } else if (e.key === "Enter" && highlightIdx >= 0 && open) {
+      e.preventDefault();
+      selectModel(filtered[highlightIdx]);
+    } else if (e.key === "Escape") {
+      setOpen(false);
+      setHighlightIdx(-1);
+    }
+  };
+
+  return (
+    <div ref={containerRef} className="relative flex-1">
+      <div className="relative">
+        <input
+          ref={inputRef}
+          type="text"
+          value={value}
+          onChange={(e) => {
+            onChange(e.target.value);
+            setOpen(true);
+            setHighlightIdx(-1);
+          }}
+          onFocus={() => setOpen(true)}
+          onKeyDown={handleKeyDown}
+          placeholder={placeholder}
+          className="w-full bg-[var(--background)] border border-[var(--border)] rounded-md px-3 py-2 pr-8 text-sm font-mono text-[var(--foreground)] placeholder:text-[var(--muted-foreground)]"
+        />
+        <button
+          type="button"
+          onClick={() => setOpen(!open)}
+          className="absolute right-2 top-1/2 -translate-y-1/2 text-[var(--muted-foreground)] hover:text-[var(--foreground)]"
+        >
+          <ChevronDown className={`h-3.5 w-3.5 transition-transform ${open ? "rotate-180" : ""}`} />
+        </button>
+      </div>
+
+      {open && filtered.length > 0 && (
+        <div className="absolute z-10 mt-1 w-full bg-[var(--card)] border border-[var(--border)] rounded-md shadow-lg max-h-56 overflow-y-auto">
+          {filtered.map((model, idx) => (
+            <button
+              key={model}
+              type="button"
+              onClick={() => selectModel(model)}
+              onMouseEnter={() => setHighlightIdx(idx)}
+              className={`w-full text-left px-3 py-1.5 text-sm font-mono transition-colors ${
+                idx === highlightIdx
+                  ? "bg-[var(--accent)]/15 text-[var(--foreground)]"
+                  : "text-[var(--muted-foreground)] hover:bg-[var(--border)]"
+              } ${model === value ? "text-[var(--accent)]" : ""}`}
+            >
+              {model}
+            </button>
+          ))}
+        </div>
+      )}
+      {open && value && filtered.length === 0 && (
+        <div className="absolute z-10 mt-1 w-full bg-[var(--card)] border border-[var(--border)] rounded-md shadow-lg p-3 text-xs text-[var(--muted-foreground)] text-center">
+          Type to use a custom model
+        </div>
+      )}
+    </div>
+  );
 }
 
 export default function ProvidersPage() {
@@ -260,18 +372,17 @@ export default function ProvidersPage() {
             )}
           </div>
 
-          {/* Model */}
+          {/* Model — combobox com dropdown + free text */}
           <div>
             <label className="text-xs text-[var(--muted-foreground)] block mb-1.5">
               Model
             </label>
             <div className="flex gap-2">
-              <input
-                type="text"
+              <ModelCombobox
                 value={modelName}
-                onChange={(e) => setModelName(e.target.value)}
-                placeholder="e.g. deepseek/deepseek-v4-pro"
-                className="flex-1 bg-[var(--background)] border border-[var(--border)] rounded-md px-3 py-2 text-sm font-mono text-[var(--foreground)] placeholder:text-[var(--muted-foreground)]"
+                onChange={setModelName}
+                provider={selectedProvider}
+                placeholder={currentProviderInfo?.defaultModel || "Select or type a model..."}
               />
               <button
                 onClick={saveModel}
