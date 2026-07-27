@@ -1,0 +1,280 @@
+#!/usr/bin/env bash
+# Hermes Dashboard — start / stop / restart / status
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+cd "$ROOT"
+
+PORT="${PORT:-3000}"
+HOST="${HOST:-0.0.0.0}"
+MODE="${MODE:-dev}" # dev | prod
+
+PID_DIR="$ROOT/.run"
+PID_FILE="$PID_DIR/dashboard.pid"
+LOG_FILE="$PID_DIR/dashboard.log"
+
+mkdir -p "$PID_DIR"
+
+usage() {
+  cat <<EOF
+Usage: $(basename "$0") <command> [options]
+
+Commands:
+  start     Start the dashboard in background
+  stop      Stop the dashboard
+  restart   Stop then start
+  status    Show process / port status
+  logs      Tail the log file (Ctrl+C to exit)
+  open      Open http://localhost:\$PORT in the browser
+
+Env:
+  PORT=3000          Listen port (default 3000)
+  HOST=0.0.0.0       Bind host
+  MODE=dev|prod      dev = next dev, prod = next start (needs build)
+
+Examples:
+  ./scripts/dashboard start
+  PORT=3001 ./scripts/dashboard start
+  MODE=prod ./scripts/dashboard start
+  ./scripts/dashboard stop
+  ./scripts/dashboard status
+EOF
+}
+
+is_pid_running() {
+  local pid="${1:-}"
+  [[ -n "$pid" ]] && kill -0 "$pid" 2>/dev/null
+}
+
+read_pid() {
+  if [[ -f "$PID_FILE" ]]; then
+    tr -d '[:space:]' <"$PID_FILE" || true
+  fi
+}
+
+port_pids() {
+  # PIDs listening on PORT (macOS/Linux)
+  if command -v lsof >/dev/null 2>&1; then
+    lsof -nP -iTCP:"$PORT" -sTCP:LISTEN -t 2>/dev/null | sort -u || true
+  fi
+}
+
+clear_stale_pidfile() {
+  local pid
+  pid="$(read_pid)"
+  if [[ -n "$pid" ]] && ! is_pid_running "$pid"; then
+    rm -f "$PID_FILE"
+  fi
+}
+
+wait_http() {
+  local url="http://127.0.0.1:${PORT}/"
+  local i
+  for i in $(seq 1 40); do
+    if curl -fsS --max-time 1 -o /dev/null "$url" 2>/dev/null; then
+      return 0
+    fi
+    # still starting if process alive
+    local pid
+    pid="$(read_pid)"
+    if [[ -n "$pid" ]] && ! is_pid_running "$pid"; then
+      return 1
+    fi
+    sleep 0.25
+  done
+  return 1
+}
+
+cmd_status() {
+  clear_stale_pidfile
+  local pid port_list
+  pid="$(read_pid)"
+  port_list="$(port_pids | tr '\n' ' ' | sed 's/[[:space:]]*$//')"
+
+  echo "Root:   $ROOT"
+  echo "Mode:   $MODE"
+  echo "Port:   $PORT"
+  echo "PID file: ${pid:-'(none)'}"
+  echo "Port listeners: ${port_list:-'(none)'}"
+  echo "Log:    $LOG_FILE"
+
+  if [[ -n "$pid" ]] && is_pid_running "$pid"; then
+    echo "State:  RUNNING (pid $pid)"
+    if curl -fsS --max-time 2 -o /dev/null "http://127.0.0.1:${PORT}/" 2>/dev/null; then
+      echo "HTTP:   OK  http://localhost:${PORT}"
+    else
+      echo "HTTP:   process up, but not responding yet"
+    fi
+    return 0
+  fi
+
+  if [[ -n "$port_list" ]]; then
+    echo "State:  PORT BUSY (not our pidfile)"
+    return 0
+  fi
+
+  echo "State:  STOPPED"
+  return 1
+}
+
+kill_tree() {
+  local pid="$1"
+  # best-effort: kill process group if we started with setsid/nohup child
+  if is_pid_running "$pid"; then
+    kill "$pid" 2>/dev/null || true
+  fi
+}
+
+force_free_port() {
+  local p
+  for p in $(port_pids); do
+    echo "Killing listener pid $p on port $PORT"
+    kill "$p" 2>/dev/null || true
+  done
+  sleep 0.4
+  for p in $(port_pids); do
+    echo "Force-killing pid $p"
+    kill -9 "$p" 2>/dev/null || true
+  done
+}
+
+cmd_stop() {
+  clear_stale_pidfile
+  local pid
+  pid="$(read_pid)"
+  local stopped=0
+
+  if [[ -n "$pid" ]] && is_pid_running "$pid"; then
+    echo "Stopping dashboard (pid $pid)..."
+    kill_tree "$pid"
+    local i
+    for i in $(seq 1 20); do
+      if ! is_pid_running "$pid"; then
+        break
+      fi
+      sleep 0.2
+    done
+    if is_pid_running "$pid"; then
+      echo "Graceful stop timed out; sending SIGKILL to $pid"
+      kill -9 "$pid" 2>/dev/null || true
+      sleep 0.2
+    fi
+    stopped=1
+  fi
+
+  # Also free the port if something else (or a child) still holds it
+  if [[ -n "$(port_pids)" ]]; then
+    force_free_port
+    stopped=1
+  fi
+
+  rm -f "$PID_FILE"
+
+  if [[ "$stopped" -eq 1 ]]; then
+    echo "Stopped."
+  else
+    echo "Already stopped."
+  fi
+}
+
+cmd_start() {
+  clear_stale_pidfile
+  local pid
+  pid="$(read_pid)"
+
+  if [[ -n "$pid" ]] && is_pid_running "$pid"; then
+    echo "Already running (pid $pid) → http://localhost:${PORT}"
+    exit 0
+  fi
+
+  if [[ -n "$(port_pids)" ]]; then
+    echo "Port $PORT is busy by another process:"
+    if command -v lsof >/dev/null 2>&1; then
+      lsof -nP -iTCP:"$PORT" -sTCP:LISTEN || true
+    fi
+    echo "Stop it first: $0 stop"
+    exit 1
+  fi
+
+  if [[ ! -d "$ROOT/node_modules" ]]; then
+    echo "node_modules missing — running npm install..."
+    npm install
+  fi
+
+  local cmd
+  case "$MODE" in
+    dev)
+      cmd=(npx next dev --hostname "$HOST" --port "$PORT")
+      ;;
+    prod)
+      if [[ ! -d "$ROOT/.next" ]]; then
+        echo "No build found. Running npm run build..."
+        npm run build
+      fi
+      cmd=(npx next start --hostname "$HOST" --port "$PORT")
+      ;;
+    *)
+      echo "Unknown MODE=$MODE (use dev or prod)"
+      exit 1
+      ;;
+  esac
+
+  echo "Starting Hermes dashboard ($MODE) on http://localhost:${PORT} ..."
+  # Detach fully from this shell
+  nohup "${cmd[@]}" >>"$LOG_FILE" 2>&1 &
+  pid=$!
+  echo "$pid" >"$PID_FILE"
+  disown "$pid" 2>/dev/null || true
+
+  if wait_http; then
+    echo "Ready → http://localhost:${PORT}"
+    echo "PID $pid  |  logs: $0 logs"
+  else
+    echo "Failed to become ready. Last log lines:"
+    tail -n 40 "$LOG_FILE" 2>/dev/null || true
+    # cleanup pidfile if dead
+    if ! is_pid_running "$pid"; then
+      rm -f "$PID_FILE"
+    fi
+    exit 1
+  fi
+}
+
+cmd_restart() {
+  cmd_stop || true
+  cmd_start
+}
+
+cmd_logs() {
+  touch "$LOG_FILE"
+  echo "Tailing $LOG_FILE (Ctrl+C to exit)"
+  tail -n 50 -f "$LOG_FILE"
+}
+
+cmd_open() {
+  local url="http://localhost:${PORT}"
+  if command -v open >/dev/null 2>&1; then
+    open "$url"
+  elif command -v xdg-open >/dev/null 2>&1; then
+    xdg-open "$url"
+  else
+    echo "$url"
+  fi
+}
+
+main() {
+  local cmd="${1:-}"
+  shift || true
+  case "$cmd" in
+    start)   cmd_start "$@" ;;
+    stop)    cmd_stop "$@" ;;
+    restart) cmd_restart "$@" ;;
+    status)  cmd_status "$@" ;;
+    logs)    cmd_logs "$@" ;;
+    open)    cmd_open "$@" ;;
+    -h|--help|help|"") usage; [[ -n "$cmd" ]] || exit 0 ;;
+    *) echo "Unknown command: $cmd"; usage; exit 1 ;;
+  esac
+}
+
+main "$@"

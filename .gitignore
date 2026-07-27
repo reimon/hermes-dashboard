@@ -24,6 +24,9 @@
 .DS_Store
 *.pem
 
+# local runtime (pid/log from scripts/dashboard)
+/.run/
+
 # debug
 npm-debug.log*
 yarn-debug.log*

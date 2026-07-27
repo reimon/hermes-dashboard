@@ -4,10 +4,12 @@ import { useEffect, useState, useCallback, useRef } from "react";
 import {
   Zap, Key, Globe, Cpu, TestTube2, CheckCircle2,
   XCircle, Save, Eye, EyeOff, RefreshCw, AlertCircle,
-  ChevronDown,
+  ChevronDown, Sparkles,
 } from "lucide-react";
 import type { ProviderInfo, HermesProviderState } from "@/lib/hermes-write";
 import { PROVIDER_MODELS } from "@/lib/hermes-types";
+import { SpotlightCard } from "@/components/ui/spotlight-card";
+import { PageShell, FadeIn } from "@/components/ui/motion";
 
 interface ProviderData extends HermesProviderState {
   keyList: { key: string; value: string; masked: string }[];
@@ -354,19 +356,25 @@ export default function ProvidersPage() {
   );
 
   return (
-    <div className="space-y-6 max-w-4xl">
-      <div className="flex items-center justify-between">
-        <h1 className="text-lg font-bold flex items-center gap-2">
-          <Zap className="h-5 w-5 text-[var(--accent)]" />
-          Providers
-        </h1>
+    <PageShell className="space-y-6 max-w-4xl">
+      <FadeIn className="flex items-end justify-between gap-4 flex-wrap">
+        <div>
+          <div className="flex items-center gap-2 text-[11px] uppercase tracking-[0.18em] text-[var(--muted-foreground)] mb-2">
+            <Sparkles className="h-3 w-3 text-[var(--accent)]" />
+            Routing
+          </div>
+          <h1 className="text-3xl font-semibold tracking-tight flex items-center gap-3">
+            <Zap className="h-7 w-7 text-[var(--accent)]" strokeWidth={2.2} />
+            Providers
+          </h1>
+        </div>
         <button
           onClick={() => setShowAllProviders(!showAllProviders)}
-          className="text-xs text-[var(--muted-foreground)] hover:text-[var(--foreground)]"
+          className="text-xs text-[var(--muted-foreground)] hover:text-[var(--foreground)] cursor-pointer transition-colors"
         >
           {showAllProviders ? "Hide all providers" : "Show all providers"}
         </button>
-      </div>
+      </FadeIn>
 
       {/* Active provider card */}
       <div className="bg-[var(--card)] border border-[var(--border)] rounded-lg p-5">
@@ -663,6 +671,6 @@ export default function ProvidersPage() {
           </p>
         </div>
       </div>
-    </div>
+    </PageShell>
   );
 }

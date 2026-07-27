@@ -1,31 +1,186 @@
 @import "tailwindcss";
 
 :root {
-  --background: #0a0a0b;
-  --foreground: #e4e4e7;
-  --card: #18181b;
-  --card-foreground: #e4e4e7;
-  --border: #27272a;
-  --muted: #3f3f46;
-  --muted-foreground: #a1a1aa;
-  --accent: #22c55e;
-  --accent-foreground: #052e16;
+  /* Surfaces — OLED-friendly dark stack */
+  --background: #07070a;
+  --surface: #0e0e12;
+  --surface-2: #15151a;
+  --card: #15151a;
+  --card-elevated: #1a1a20;
+  --border: #22222a;
+  --border-strong: #2e2e38;
+  --muted: #3a3a44;
+  --muted-foreground: #8a8a96;
+  --foreground: #e9e9ee;
+  --foreground-soft: #c4c4cc;
+
+  /* Brand */
+  --accent: #10b981;
+  --accent-soft: #34d399;
+  --accent-foreground: #022c22;
+  --accent-glow: rgba(16, 185, 129, 0.35);
+
+  /* Semantic data colors */
+  --data-in: #60a5fa;
+  --data-out: #c084fc;
+  --data-cache: #34d399;
+  --data-reason: #fb923c;
+  --cost: #f59e0b;
   --destructive: #ef4444;
   --destructive-foreground: #fef2f2;
+
+  /* Radii / shadows */
+  --radius: 12px;
+  --shadow-elev: 0 1px 0 0 rgba(255, 255, 255, 0.03) inset,
+    0 0 0 1px rgba(255, 255, 255, 0.02) inset,
+    0 8px 24px -12px rgba(0, 0, 0, 0.6);
 }
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-border: var(--border);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+}
+
+html, body { height: 100%; }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: "SF Mono", "Fira Code", "JetBrains Mono", monospace;
+  font-family: ui-sans-serif, "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-feature-settings: "ss01", "cv11";
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
-/* Scrollbar subtle */
-::-webkit-scrollbar { width: 6px; }
-::-webkit-scrollbar-track { background: var(--background); }
-::-webkit-scrollbar-thumb { background: var(--muted); border-radius: 3px; }
+/* Tabular numerals + mono for data */
+.font-mono, code, kbd {
+  font-family: "JetBrains Mono", "Fira Code", "SF Mono", ui-monospace, monospace;
+  font-feature-settings: "ss02", "cv11", "zero";
+}
+.tabular { font-variant-numeric: tabular-nums; }
 
-/* Recharts text color */
+/* Faint star-field grain for the canvas */
+.bg-grain {
+  background-image:
+    radial-gradient(rgba(255, 255, 255, 0.025) 1px, transparent 1px);
+  background-size: 22px 22px;
+  background-position: 0 0;
+}
+
+/* Aurora — slow diagonal gradient sweep behind the app */
+.aurora {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+  z-index: 0;
+}
+.aurora::before,
+.aurora::after {
+  content: "";
+  position: absolute;
+  width: 60vw;
+  height: 60vw;
+  border-radius: 50%;
+  filter: blur(80px);
+  opacity: 0.18;
+  animation: aurora-drift 28s ease-in-out infinite;
+}
+.aurora::before {
+  background: radial-gradient(circle at 30% 30%, #10b981, transparent 60%);
+  top: -20vw;
+  left: -10vw;
+}
+.aurora::after {
+  background: radial-gradient(circle at 70% 70%, #6366f1, transparent 60%);
+  bottom: -25vw;
+  right: -15vw;
+  animation-delay: -14s;
+  opacity: 0.14;
+}
+@keyframes aurora-drift {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+  50% { transform: translate3d(8vw, 4vw, 0) scale(1.08); }
+}
+
+/* Spotlight card — radial gradient follows cursor */
+.spotlight {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+}
+.spotlight::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: radial-gradient(
+    320px circle at var(--mx, 50%) var(--my, 50%),
+    rgba(16, 185, 129, 0.12),
+    transparent 60%
+  );
+  opacity: 0;
+  transition: opacity 220ms ease;
+  pointer-events: none;
+  z-index: 0;
+}
+.spotlight:hover::before { opacity: 1; }
+.spotlight > * { position: relative; z-index: 1; }
+
+/* Gradient hairline border (mask trick) */
+.ring-gradient {
+  position: relative;
+}
+.ring-gradient::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  padding: 1px;
+  border-radius: inherit;
+  background: linear-gradient(
+    140deg,
+    rgba(16, 185, 129, 0.45),
+    rgba(255, 255, 255, 0.04) 30%,
+    rgba(255, 255, 255, 0.02) 70%,
+    rgba(99, 102, 241, 0.35)
+  );
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
+/* Scrollbar — subtle */
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: var(--muted);
+  border-radius: 4px;
+  border: 2px solid var(--background);
+}
+::-webkit-scrollbar-thumb:hover { background: var(--border-strong); }
+
+/* Recharts theming */
 .recharts-text { fill: var(--muted-foreground) !important; font-size: 11px; }
 .recharts-cartesian-grid line { stroke: var(--border) !important; }
 .recharts-cartesian-axis-line { stroke: var(--border) !important; }
+.recharts-tooltip-cursor { fill: rgba(255, 255, 255, 0.03) !important; }
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .aurora::before, .aurora::after { animation: none; }
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    transition-duration: 0.001ms !important;
+  }
+}
+
+/* Selection */
+::selection { background: var(--accent-glow); color: #fff; }

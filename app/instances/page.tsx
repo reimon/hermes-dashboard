@@ -2,12 +2,15 @@
 
 import { useEffect, useState, useCallback } from "react";
 import {
-  Plus, Trash2, GripVertical, Power, PowerOff,
-  Zap, Save, RefreshCw, CheckCircle2, ArrowDownUp,
+  Plus, Trash2, Power, PowerOff,
+  Zap, Save, RefreshCw,
   Tags, Shield, ZapIcon, Code, Search, Eye, EyeOff,
-  Box, ChevronDown, AlertCircle, Play,
+  Box, ChevronDown, Play, Sparkles,
 } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 import { PROVIDERS, PROVIDER_MODELS } from "@/lib/hermes-types";
+import { SpotlightCard } from "@/components/ui/spotlight-card";
+import { PageShell, FadeIn } from "@/components/ui/motion";
 import {
   ALL_TAGS,
   type InstanceTag,
@@ -174,19 +177,7 @@ export default function InstancesPage() {
     await fetchData();
   };
 
-  if (loading) {
-    return (
-      <div className="space-y-4 animate-pulse max-w-5xl">
-        <div className="h-8 w-48 bg-[var(--card)] rounded" />
-        <div className="h-32 bg-[var(--card)] rounded-lg" />
-      </div>
-    );
-  }
-
-  if (!data) return null;
-
-  const { instances, registry, providers, models } = data;
-  const currentModels = models[formProvider] || [];
+  // Hooks (must be before any conditional return)
   const [liveInstanceModels, setLiveInstanceModels] = useState<{ id: string; name: string }[]>([]);
   const [fetchingInstanceModels, setFetchingInstanceModels] = useState(false);
 
@@ -211,27 +202,45 @@ export default function InstancesPage() {
     return () => { cancelled = true; };
   }, [formProvider, formApiKey, formBaseUrl]);
 
+  if (loading) {
+    return (
+      <div className="space-y-4 animate-pulse max-w-5xl">
+        <div className="h-8 w-48 bg-[var(--card)] rounded" />
+        <div className="h-32 bg-[var(--card)] rounded-lg" />
+      </div>
+    );
+  }
+
+  if (!data) return null;
+
+  const { instances, registry, providers, models } = data;
+  const currentModels = models[formProvider] || [];
   // Merged models for dropdown
   const liveIds = new Set(liveInstanceModels.map((m: { id: string }) => m.id));
   const mergedInstanceModels = [
     ...liveInstanceModels,
     ...currentModels.filter((m: string) => !liveIds.has(m)).map((m: string) => ({ id: m, name: m })),
   ];
-
   return (
-    <div className="space-y-6 max-w-5xl">
-      <div className="flex items-center justify-between">
-        <h1 className="text-lg font-bold flex items-center gap-2">
-          <Box className="h-5 w-5 text-[var(--accent)]" />
-          LLM Instances
-          <span className="text-sm font-normal text-[var(--muted-foreground)]">
-            ({instances.length})
-          </span>
-        </h1>
+    <PageShell className="space-y-6 max-w-5xl">
+      <FadeIn className="flex items-end justify-between gap-4 flex-wrap">
+        <div>
+          <div className="flex items-center gap-2 text-[11px] uppercase tracking-[0.18em] text-[var(--muted-foreground)] mb-2">
+            <Sparkles className="h-3 w-3 text-[var(--accent)]" />
+            Registry
+          </div>
+          <h1 className="text-3xl font-semibold tracking-tight flex items-center gap-3">
+            <Box className="h-7 w-7 text-[var(--accent)]" strokeWidth={2.2} />
+            LLM Instances
+            <span className="text-xs font-normal text-[var(--muted-foreground)] font-mono px-2 py-1 rounded-md bg-[var(--card)] border border-[var(--border)]">
+              {instances.length}
+            </span>
+          </h1>
+        </div>
         <div className="flex gap-2">
           <button
             onClick={handleGenerateConfig}
-            className="px-3 py-1.5 rounded-md border border-[var(--border)] text-xs hover:bg-[var(--border)] transition-colors flex items-center gap-1.5"
+            className="px-3 py-1.5 rounded-md border border-[var(--border)] text-xs hover:bg-[var(--card-elevated)] hover:border-[var(--border-strong)] transition-colors flex items-center gap-1.5 cursor-pointer"
           >
             <Play className="h-3.5 w-3.5" />
             Generate Config
@@ -241,13 +250,13 @@ export default function InstancesPage() {
               resetForm();
               setShowForm(true);
             }}
-            className="px-3 py-1.5 rounded-md bg-[var(--accent)] text-[var(--accent-foreground)] text-xs font-medium hover:opacity-90 transition-opacity flex items-center gap-1.5"
+            className="px-3 py-1.5 rounded-md bg-[var(--accent)] text-[var(--accent-foreground)] text-xs font-medium hover:opacity-90 transition-opacity flex items-center gap-1.5 cursor-pointer shadow-[0_0_20px_var(--accent-glow)]"
           >
             <Plus className="h-3.5 w-3.5" />
             Add Instance
           </button>
         </div>
-      </div>
+      </FadeIn>
 
       {/* Strategy config */}
       <div className="bg-[var(--card)] border border-[var(--border)] rounded-lg p-4">
@@ -284,8 +293,16 @@ export default function InstancesPage() {
       </div>
 
       {/* Add/Edit form */}
+      <AnimatePresence>
       {showForm && (
-        <div className="bg-[var(--card)] border border-[var(--accent)] rounded-lg p-5 space-y-4">
+        <motion.div
+          initial={{ opacity: 0, y: -6, height: 0 }}
+          animate={{ opacity: 1, y: 0, height: "auto" }}
+          exit={{ opacity: 0, y: -6, height: 0 }}
+          transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+          className="overflow-hidden"
+        >
+        <div className="bg-[var(--card)] border border-[var(--accent)]/60 rounded-[var(--radius)] p-5 space-y-4 shadow-[0_0_30px_var(--accent-glow)]">
           <h2 className="text-sm font-semibold">
             {editingId ? "Edit Instance" : "New Instance"}
           </h2>
@@ -480,11 +497,19 @@ export default function InstancesPage() {
             </div>
           </div>
         </div>
+        </motion.div>
       )}
+      </AnimatePresence>
 
       {/* Generated config preview */}
+      <AnimatePresence>
       {generatedConfig && (
-        <div className="bg-[var(--card)] border border-[var(--accent)] rounded-lg p-5 space-y-3">
+        <motion.div
+          initial={{ opacity: 0, y: -6 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -6 }}
+          transition={{ duration: 0.3 }}
+          className="bg-[var(--card)] border border-[var(--accent)]/60 rounded-[var(--radius)] p-5 space-y-3 shadow-[0_0_30px_var(--accent-glow)]">
           <div className="flex items-center justify-between">
             <h2 className="text-sm font-semibold flex items-center gap-2">
               <Play className="h-4 w-4 text-[var(--accent)]" />
@@ -543,12 +568,13 @@ export default function InstancesPage() {
             ))}
             {generatedConfig.fallbackChain.length === 0 && "No instances configured"}
           </div>
-        </div>
+        </motion.div>
       )}
+      </AnimatePresence>
 
       {/* Instances list */}
       {instances.length === 0 && !showForm ? (
-        <div className="bg-[var(--card)] border border-[var(--border)] rounded-lg p-12 text-center">
+        <div className="bg-[var(--card)] border border-[var(--border)] rounded-[var(--radius)] p-12 text-center">
           <Box className="h-8 w-8 mx-auto text-[var(--muted-foreground)] mb-3" />
           <p className="text-sm text-[var(--muted-foreground)] mb-3">
             No LLM instances registered yet
@@ -566,11 +592,14 @@ export default function InstancesPage() {
           {instances.map((inst, idx) => {
             const providerInfo = providers.find((p) => p.value === inst.provider);
             return (
-              <div
+              <motion.div
                 key={inst.id}
-                className={`bg-[var(--card)] border rounded-lg p-4 transition-colors ${
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: Math.min(idx * 0.04, 0.4), duration: 0.35 }}
+                className={`spotlight bg-[var(--card)] border rounded-[var(--radius)] p-4 transition-colors ${
                   inst.enabled
-                    ? "border-[var(--border)] hover:border-[var(--muted)]"
+                    ? "border-[var(--border)] hover:border-[var(--border-strong)]"
                     : "border-[var(--border)] opacity-50"
                 }`}
               >
@@ -595,7 +624,7 @@ export default function InstancesPage() {
 
                     {/* Tags */}
                     <div className="flex flex-wrap gap-1 mb-2">
-                      {inst.tags.map((tag) => {
+                      {(inst.tags || []).map((tag) => {
                         const tagInfo = ALL_TAGS.find((t) => t.value === tag);
                         const Icon = tagIcons[tag];
                         return (
@@ -608,7 +637,7 @@ export default function InstancesPage() {
                           </span>
                         );
                       })}
-                      {inst.tags.length === 0 && (
+                      {(inst.tags || []).length === 0 && (
                         <span className="text-[10px] text-[var(--muted-foreground)] italic">
                           No tags
                         </span>
@@ -646,18 +675,18 @@ export default function InstancesPage() {
                     </button>
                     <button
                       onClick={() => handleDelete(inst.id)}
-                      className="p-1 rounded hover:bg-red-950/50 text-[var(--muted-foreground)] hover:text-red-400"
+                      className="p-1 rounded hover:bg-red-950/50 text-[var(--muted-foreground)] hover:text-red-400 cursor-pointer transition-colors"
                       title="Delete"
                     >
                       <Trash2 className="h-3.5 w-3.5" />
                     </button>
                   </div>
                 </div>
-              </div>
+              </motion.div>
             );
           })}
         </div>
       )}
-    </div>
+    </PageShell>
   );
 }
