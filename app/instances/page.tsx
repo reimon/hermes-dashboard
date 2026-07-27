@@ -5,12 +5,13 @@ import {
   Plus, Trash2, Power, PowerOff,
   Zap, Save, RefreshCw,
   Tags, Shield, ZapIcon, Code, Search, Eye, EyeOff,
-  Box, ChevronDown, Play, Sparkles,
+  Box, Play, Sparkles,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { PROVIDERS, PROVIDER_MODELS } from "@/lib/hermes-types";
 import { SpotlightCard } from "@/components/ui/spotlight-card";
 import { PageShell, FadeIn } from "@/components/ui/motion";
+import { ModelCombobox } from "@/components/ui/model-combobox";
 import {
   ALL_TAGS,
   type InstanceTag,
@@ -69,7 +70,6 @@ export default function InstancesPage() {
   const [formTags, setFormTags] = useState<InstanceTag[]>([]);
   const [formPriority, setFormPriority] = useState(1);
   const [formEnabled, setFormEnabled] = useState(true);
-  const [modelDropdownOpen, setModelDropdownOpen] = useState(false);
 
   const fetchData = useCallback(async () => {
     const res = await fetch("/api/instances");
@@ -91,7 +91,6 @@ export default function InstancesPage() {
     setFormTags([]);
     setFormPriority(1);
     setFormEnabled(true);
-    setModelDropdownOpen(false);
   };
 
   const editInstance = (inst: LlmInstance) => {
@@ -177,31 +176,6 @@ export default function InstancesPage() {
     await fetchData();
   };
 
-  // Hooks (must be before any conditional return)
-  const [liveInstanceModels, setLiveInstanceModels] = useState<{ id: string; name: string }[]>([]);
-  const [fetchingInstanceModels, setFetchingInstanceModels] = useState(false);
-
-  // Live fetch models for instance form
-  useEffect(() => {
-    if (!formApiKey && formProvider !== "ollama") {
-      setLiveInstanceModels([]);
-      return;
-    }
-    let cancelled = false;
-    setFetchingInstanceModels(true);
-    const params = new URLSearchParams({ provider: formProvider });
-    if (formApiKey) params.set("apiKey", formApiKey);
-    if (formBaseUrl) params.set("baseUrl", formBaseUrl);
-    fetch(`/api/providers/models?${params}`)
-      .then((r) => r.json())
-      .then((data) => {
-        if (!cancelled && data.models?.length > 0) setLiveInstanceModels(data.models);
-      })
-      .catch(() => {})
-      .finally(() => { if (!cancelled) setFetchingInstanceModels(false); });
-    return () => { cancelled = true; };
-  }, [formProvider, formApiKey, formBaseUrl]);
-
   if (loading) {
     return (
       <div className="space-y-4 animate-pulse max-w-5xl">
@@ -213,14 +187,7 @@ export default function InstancesPage() {
 
   if (!data) return null;
 
-  const { instances, registry, providers, models } = data;
-  const currentModels = models[formProvider] || [];
-  // Merged models for dropdown
-  const liveIds = new Set(liveInstanceModels.map((m: { id: string }) => m.id));
-  const mergedInstanceModels = [
-    ...liveInstanceModels,
-    ...currentModels.filter((m: string) => !liveIds.has(m)).map((m: string) => ({ id: m, name: m })),
-  ];
+  const { instances, registry, providers } = data;
   return (
     <PageShell className="space-y-6 max-w-5xl">
       <FadeIn className="flex items-end justify-between gap-4 flex-wrap">
@@ -343,59 +310,16 @@ export default function InstancesPage() {
                 ))}
               </select>
             </div>
-            <div className="relative">
+            <div>
               <label className="text-xs text-[var(--muted-foreground)] block mb-1">Model *</label>
-              <div className="relative">
-                <input
-                  type="text"
-                  value={formModel}
-                  onChange={(e) => {
-                    setFormModel(e.target.value);
-                    setModelDropdownOpen(true);
-                  }}
-                  onFocus={() => setModelDropdownOpen(true)}
-                  placeholder="Select or type..."
-                  className="w-full bg-[var(--background)] border border-[var(--border)] rounded-md px-3 py-2 pr-8 text-sm font-mono text-[var(--foreground)] placeholder:text-[var(--muted-foreground)]"
-                />
-                <button
-                  type="button"
-                  onClick={() => setModelDropdownOpen(!modelDropdownOpen)}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 text-[var(--muted-foreground)]"
-                >
-                  <ChevronDown className={`h-3.5 w-3.5 transition-transform ${modelDropdownOpen ? "rotate-180" : ""}`} />
-                </button>
-                {modelDropdownOpen && mergedInstanceModels.length > 0 && (
-                  <div className="absolute z-10 mt-1 w-full bg-[var(--card)] border border-[var(--border)] rounded-md shadow-lg max-h-40 overflow-y-auto">
-                    {liveInstanceModels.length > 0 && (
-                      <div className="px-3 py-1 text-[10px] text-[var(--accent)] border-b border-[var(--border)] sticky top-0 bg-[var(--card)]">
-                        Live from API ({liveInstanceModels.length} models)
-                      </div>
-                    )}
-                    {mergedInstanceModels
-                      .filter((m) => !formModel || m.id.toLowerCase().includes(formModel.toLowerCase()) || m.name.toLowerCase().includes(formModel.toLowerCase()))
-                      .map((m) => (
-                        <button
-                          key={m.id}
-                          type="button"
-                          onClick={() => { setFormModel(m.id); setModelDropdownOpen(false); }}
-                          className={`w-full text-left px-3 py-1.5 text-xs font-mono hover:bg-[var(--border)] flex items-center gap-2 ${
-                            m.id === formModel ? "text-[var(--accent)]" : "text-[var(--muted-foreground)]"
-                          }`}
-                        >
-                          <span className="truncate flex-1">{m.id}</span>
-                          {liveIds.has(m.id) && (
-                            <span className="text-[9px] px-1 rounded bg-[var(--accent)]/20 text-[var(--accent)] shrink-0">live</span>
-                          )}
-                        </button>
-                      ))}
-                  </div>
-                )}
-                {modelDropdownOpen && !formModel && mergedInstanceModels.length === 0 && (
-                  <div className="absolute z-10 mt-1 w-full bg-[var(--card)] border border-[var(--border)] rounded-md shadow-lg p-3 text-xs text-[var(--muted-foreground)] text-center">
-                    {fetchingInstanceModels ? "Loading models..." : "Type a model name"}
-                  </div>
-                )}
-              </div>
+              <ModelCombobox
+                value={formModel}
+                onChange={setFormModel}
+                provider={formProvider}
+                apiKey={formApiKey || undefined}
+                baseUrl={formBaseUrl || undefined}
+                placeholder="Select or type..."
+              />
             </div>
             <div>
               <label className="text-xs text-[var(--muted-foreground)] block mb-1">API Key</label>
