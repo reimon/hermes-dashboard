@@ -15,6 +15,7 @@ import {
 } from "recharts";
 import { Zap, Cpu, Database, DollarSign, TrendingUp, Sparkles, ArrowUpRight } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import Link from "next/link";
 import { SpotlightCard } from "@/components/ui/spotlight-card";
 import { NumberTicker } from "@/components/ui/number-ticker";
 import { PageShell, FadeIn } from "@/components/ui/motion";
@@ -147,8 +148,14 @@ export default function DashboardPage() {
           <p className="text-[var(--destructive)] font-semibold">Error loading data</p>
           <p className="text-sm text-[var(--muted-foreground)]">{error}</p>
           <p className="text-xs text-[var(--muted-foreground)]">
-            Make sure Hermes Agent is installed and state.db exists at ~/.hermes/
+            Make sure the dashboard points at a Hermes folder with a valid state.db.
           </p>
+          <Link
+            href="/setup"
+            className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md bg-[var(--accent)]/15 border border-[var(--accent)]/30 text-[var(--accent)] hover:bg-[var(--accent)]/25 transition-colors"
+          >
+            Go to Setup
+          </Link>
         </SpotlightCard>
       </div>
     );

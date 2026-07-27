@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { motion } from "framer-motion";
-import { BarChart3, Key, MessageSquare, Zap, Box } from "lucide-react";
+import { BarChart3, Key, MessageSquare, Zap, Box, Wrench } from "lucide-react";
 
 const navItems = [
   { href: "/", label: "Dashboard", icon: BarChart3 },
@@ -11,6 +11,7 @@ const navItems = [
   { href: "/instances", label: "Instances", icon: Box },
   { href: "/config", label: "API Keys", icon: Key },
   { href: "/sessions", label: "Sessions", icon: MessageSquare },
+  { href: "/setup", label: "Setup", icon: Wrench },
 ];
 
 export function SidebarNav() {

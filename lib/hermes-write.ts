@@ -5,18 +5,21 @@
  */
 import { readFileSync, writeFileSync, existsSync } from "fs";
 import { join } from "path";
-import { homedir } from "os";
 import * as yaml from "js-yaml";
 import { PROVIDERS, PROVIDER_MODELS } from "./hermes-types";
 import type { ProviderInfo } from "./hermes-types";
+import { getHermesHome } from "./hermes-home";
 
 // Re-export for server-side consumers
 export { PROVIDERS, PROVIDER_MODELS };
 export type { ProviderInfo };
 
-const HERMES_HOME = process.env.HERMES_HOME || join(homedir(), ".hermes");
-const CONFIG_PATH = join(HERMES_HOME, "config.yaml");
-const ENV_PATH = join(HERMES_HOME, ".env");
+function configPath(): string {
+  return join(getHermesHome(), "config.yaml");
+}
+function envPath(): string {
+  return join(getHermesHome(), ".env");
+}
 
 // ─── Read current state ──────────────────────────────────────────────────────
 
@@ -45,6 +48,7 @@ export function getProviderState(): HermesProviderState {
 // ─── Read helpers ────────────────────────────────────────────────────────────
 
 function readYaml(): Record<string, unknown> {
+  const CONFIG_PATH = configPath();
   if (!existsSync(CONFIG_PATH)) return {};
   try {
     return (yaml.load(readFileSync(CONFIG_PATH, "utf-8")) as Record<string, unknown>) || {};
@@ -54,6 +58,7 @@ function readYaml(): Record<string, unknown> {
 }
 
 function readEnv(): Record<string, string> {
+  const ENV_PATH = envPath();
   if (!existsSync(ENV_PATH)) return {};
   const vars: Record<string, string> = {};
   const lines = readFileSync(ENV_PATH, "utf-8").split("\n");
@@ -71,6 +76,7 @@ function readEnv(): Record<string, string> {
 // ─── Write operations ────────────────────────────────────────────────────────
 
 export function saveEnvVar(key: string, value: string): void {
+  const ENV_PATH = envPath();
   const lines = existsSync(ENV_PATH)
     ? readFileSync(ENV_PATH, "utf-8").split("\n")
     : [];
@@ -99,6 +105,25 @@ export function saveEnvVar(key: string, value: string): void {
   writeFileSync(ENV_PATH, updated.join("\n") + "\n", "utf-8");
 }
 
+/** Remove a variable from ~/.hermes/.env entirely (all matching lines). */
+export function deleteEnvVar(key: string): void {
+  const ENV_PATH = envPath();
+  if (!existsSync(ENV_PATH)) return;
+  const lines = readFileSync(ENV_PATH, "utf-8").split("\n");
+  const kept = lines.filter((line) => {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith("#")) return true;
+    const eqIdx = trimmed.indexOf("=");
+    return !(eqIdx > 0 && trimmed.slice(0, eqIdx).trim() === key);
+  });
+  writeFileSync(ENV_PATH, kept.join("\n").replace(/\n+$/, "\n"), "utf-8");
+}
+
+/** All variables from ~/.hermes/.env (not only API-key-like ones). */
+export function getEnvVars(): Record<string, string> {
+  return readEnv();
+}
+
 export function saveConfigProvider(provider: string, model?: string): void {
   const config = readYaml();
   const modelConfig = (config.model as Record<string, unknown>) || {};
@@ -113,7 +138,7 @@ export function saveConfigProvider(provider: string, model?: string): void {
   }
 
   config.model = modelConfig;
-  writeFileSync(CONFIG_PATH, yaml.dump(config, { lineWidth: 120 }), "utf-8");
+  writeFileSync(configPath(), yaml.dump(config, { lineWidth: 120 }), "utf-8");
 }
 
 export function saveConfigModel(model: string): void {
@@ -121,7 +146,7 @@ export function saveConfigModel(model: string): void {
   const modelConfig = (config.model as Record<string, unknown>) || {};
   modelConfig.default = model;
   config.model = modelConfig;
-  writeFileSync(CONFIG_PATH, yaml.dump(config, { lineWidth: 120 }), "utf-8");
+  writeFileSync(configPath(), yaml.dump(config, { lineWidth: 120 }), "utf-8");
 }
 
 export function saveConfigBaseUrl(baseUrl: string): void {
@@ -130,7 +155,7 @@ export function saveConfigBaseUrl(baseUrl: string): void {
   if (baseUrl) modelConfig.base_url = baseUrl;
   else delete modelConfig.base_url;
   config.model = modelConfig;
-  writeFileSync(CONFIG_PATH, yaml.dump(config, { lineWidth: 120 }), "utf-8");
+  writeFileSync(configPath(), yaml.dump(config, { lineWidth: 120 }), "utf-8");
 }
 
 // ─── Test connection ─────────────────────────────────────────────────────────

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import { Terminal } from "lucide-react";
 import { SidebarNav } from "@/components/ui/sidebar-nav";
+import { SetupBanner } from "@/components/ui/setup-banner";
 
 export const metadata: Metadata = {
   title: "Hermes Dashboard",
@@ -49,7 +50,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 
         {/* Main */}
         <main className="relative z-10 flex-1 overflow-y-auto">
-          <div className="px-8 py-7 max-w-[1400px]">{children}</div>
+          <div className="px-8 py-7 max-w-[1400px]">
+            <SetupBanner />
+            {children}
+          </div>
         </main>
       </body>
     </html>

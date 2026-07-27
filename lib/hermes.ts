@@ -6,22 +6,31 @@
  */
 import Database from "better-sqlite3";
 import { readFileSync, existsSync } from "fs";
-import { resolve, join } from "path";
-import { homedir } from "os";
+import { join } from "path";
 import * as yaml from "js-yaml";
-
-const HERMES_HOME = process.env.HERMES_HOME || join(homedir(), ".hermes");
+import { getHermesHome } from "./hermes-home";
 
 // ─── SQLite connection (read-only, WAL-safe) ────────────────────────────────
 
 let _db: Database.Database | null = null;
+let _dbPath: string | null = null;
 
 function getDb(): Database.Database {
-  if (_db) return _db;
-  const dbPath = join(HERMES_HOME, "state.db");
+  const dbPath = join(getHermesHome(), "state.db");
+  // Rebuild the handle if the resolved Hermes home changed (e.g. via Setup page).
+  if (_db && _dbPath === dbPath) return _db;
+  if (_db) {
+    try {
+      _db.close();
+    } catch {
+      // ignore close errors
+    }
+    _db = null;
+  }
   if (!existsSync(dbPath)) throw new Error(`state.db not found at ${dbPath}`);
   _db = new Database(dbPath, { readonly: true });
   _db.pragma("journal_mode = WAL");
+  _dbPath = dbPath;
   return _db;
 }
 
@@ -180,6 +189,7 @@ export function getTotalStats(days = 30) {
 // ─── Config ──────────────────────────────────────────────────────────────────
 
 export function getConfig(): HermesConfig {
+  const HERMES_HOME = getHermesHome();
   const configPath = join(HERMES_HOME, "config.yaml");
   const envPath = join(HERMES_HOME, ".env");
 
@@ -247,7 +257,7 @@ export function getApiKeys(): { key: string; value: string; masked: string }[] {
 // ─── Logs ─────────────────────────────────────────────────────────────────────
 
 export function getAgentLog(lines = 200): LogEntry[] {
-  const logPath = join(HERMES_HOME, "logs", "agent.log");
+  const logPath = join(getHermesHome(), "logs", "agent.log");
   if (!existsSync(logPath)) return [];
 
   try {

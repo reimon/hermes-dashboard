@@ -6,16 +6,18 @@
  */
 import { readFileSync, writeFileSync, existsSync } from "fs";
 import { join } from "path";
-import { homedir } from "os";
 import { PROVIDERS, PROVIDER_MODELS } from "./hermes-types";
 import type { InstanceTag, LlmInstance, InstanceRegistry } from "./hermes-types";
+import { getHermesHome } from "./hermes-home";
 
-const HERMES_HOME = process.env.HERMES_HOME || join(homedir(), ".hermes");
-const INSTANCES_PATH = join(HERMES_HOME, "llm-instances.json");
+function instancesPath(): string {
+  return join(getHermesHome(), "llm-instances.json");
+}
 
 // ─── Read/write ──────────────────────────────────────────────────────────────
 
 function readRegistry(): InstanceRegistry {
+  const INSTANCES_PATH = instancesPath();
   if (!existsSync(INSTANCES_PATH)) {
     return { version: 1, instances: [], strategy: "priority", fallbackEnabled: false };
   }
@@ -27,7 +29,7 @@ function readRegistry(): InstanceRegistry {
 }
 
 function writeRegistry(reg: InstanceRegistry): void {
-  writeFileSync(INSTANCES_PATH, JSON.stringify(reg, null, 2), "utf-8");
+  writeFileSync(instancesPath(), JSON.stringify(reg, null, 2), "utf-8");
 }
 
 // ─── Public API ──────────────────────────────────────────────────────────────
