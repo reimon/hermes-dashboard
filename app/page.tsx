@@ -128,8 +128,13 @@ export default function DashboardPage() {
 
   useEffect(() => {
     setLoading(true);
+    setError(null);
     fetch(`/api/insights?days=${days}`)
-      .then((r) => r.json())
+      .then(async (r) => {
+        const body = await r.json();
+        if (!r.ok) throw new Error(body?.error || `Request failed (${r.status})`);
+        return body;
+      })
       .then(setData)
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));

@@ -37,8 +37,8 @@ export default function SessionsPage() {
     setLoading(true);
     fetch(`/api/sessions?days=${days}&limit=200`)
       .then((r) => r.json())
-      .then(setSessions)
-      .catch(() => {})
+      .then((data) => setSessions(Array.isArray(data) ? data : []))
+      .catch(() => setSessions([]))
       .finally(() => setLoading(false));
   }, [days]);
 
